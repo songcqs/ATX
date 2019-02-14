@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap-theme.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="/assets/style.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.2.1/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.5.3/dist/vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/moment@2.20.1/moment.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.1/dist/clipboard.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/notifyjs-browser@0.4.2/dist/notify.min.js"></script>
+  <style>
+  </style>
+</head>
+
+<body>
+  <nav class="navbar navbar-default">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"
+        aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="/">
+        <b>ATX</b> -
+        <strong>Server</strong>
+      </a>
+    </div>
+    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+      <p class="navbar-text"></p>
+      <ul class="nav navbar-nav">
+        <li class="active">
+          <a href="/">
+            <i class="fa fa-list-alt"></i> 设备列表
+          </a>
+        </li>
+<!--         <li>
+          <a href="/providers">
+            <i class="fa fa-bandcamp"></i> 节点列表
+          </a>
+        </li>
+        <li>
+          <a href="/videos">
+            <i class="fa fa-film"></i> 视频列表</a>
+        </li> -->
+<!--         <li>
+          <a target="_blank" href="http://localhost:17310/">
+            <i class="fa fa-film"></i> 元素获取</a>
+        </li> -->
+      </ul>
+    </div>
+  </nav>
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-12" v-if="errmsg">
+        <p class="color-red">{{errmsg}}
+          <button class="btn btn-warning btn-xs" @click="loadWatches">点击重连</button>
+        </p>
+      </div>
+    </div>
+<!--     <form class="form-inline" v-on:submit.prevent>
+      <div class="form-group">
+        <strong>批量操作</strong>
+        <button @click.prevent="batchUnlock" class="btn btn-sm btn-default">
+          <i class="fa fa-unlock"></i> 解锁</button>
+        <button @click.prevent="batchLock" class="btn btn-sm btn-default">
+          <i class="fa fa-lock"></i> 锁屏</button>
+        <button @click.prevent="batchIdentify('red')" class="btn btn-sm btn-default">
+          <i class="fa fa-location-arrow"></i> 红色</button>
+        <button @click.prevent="batchIdentify('black')" class="btn btn-sm btn-default">
+          <i class="fa fa-location-arrow"></i> 黑色</button>
+        <button @click.prevent="batchPower" class="btn btn-sm btn-danger"><i class="fa fa-power-off"></i> 关机</button>
+        <button @click.prevent="setProperty" class="btn btn-sm btn-info">资产设置</button>
+      </div>
+    </form> -->
+    <form class="form-inline" v-on:submit.prevent>
+      <div class="form-group">
+        <div class="input-group input-group-sm">
+          <!-- <div class="input-group-addon">Search</div> -->
+          <!-- autofocus is not working, wired -->
+          <div class="input-group-addon" title="在线设备">
+            <i class="fa fa-meh-o"></i>
+            <strong v-text="onlineCount"></strong>
+          </div>
+          <div class="input-group-addon" title="已标记设备">
+            <i class="fa fa-smile-o"></i>
+            <strong v-text="count(true, true, null)"></strong>
+          </div>
+          <div class="input-group-addon" title="未标记设备">
+            <i class="fa fa-frown-o"></i>
+            <strong v-text="count(true, false, null)"></strong>
+          </div>
+          <div class="input-group-addon" title="离线设备">
+            <i class="fa fa-snowflake-o"></i>
+            <strong v-text="count(false, null, null)"></strong>
+          </div>
+          <input type="text" v-model="searchText" placeholder="搜索" class="form-control" v-focus>
+          <div class="input-group-addon">
+            <i class="fa fa-search"></i>
+          </div>
+        </div>
+      </div>
+    </form>
+    <div class="table-responsive">
+      <table class="table table-hover table-condensed">
+        <thead>
+          <tr>
+            <th class="hidden">#</th>
+            <th>标记</th>
+            <th class="text-center">使用者IP</th>
+            <th class="hidden-xs">手机IP
+              <!-- <u>设备IP</u> -->
+            </th>
+            <th class="hidden-xs">
+              <!-- <u>设备ID</u> -->手机ID
+            </th>
+            <th class="hidden-xs">手机UDID
+              <!-- <u>资产编号</u> -->
+            </th>
+            <th>手机品牌
+              <!-- <u>手机型号</u> -->
+            </th>
+            <th class="hidden-xs">手机型号
+              <!-- <u>Brand</u> -->
+            </th>
+            <th class="hidden">Model</th>
+            <th class="hidden-xs">系统版本(SDK)
+              <!-- <u>Version</u>(SDK)</th> -->
+            <th class="hidden">CPU</th>
+            <th class="hidden">MAC</th>
+            <th class="hidden">Memory</th>
+            <th class="hidden-xs">运行内存</th>
+            <!-- <th class="hidden-xs">Agent</th> -->
+            <th>
+              <span class="hidden-xs">CPU型号</span>
+              <i class="fa fa-tablet fa-lg"></i>
+            </th>
+            <th>
+              <span class="hidden-xs">CPU温度</span>
+              <i class="fa fa-thermometer"></i>
+            </th>
+            <th>
+              <span class="hidden-xs">电池电量</span>
+              <i class="fa fa-battery"></i>
+            </th>
+             <th>
+              <span class="hidden-xs">在线时长</span>
+              <i class="fa fa-dashboard"></i>
+            </th>
+            <th>备注</th>
+            <!-- <th class="hidden-xs">更多</th> -->
+            <!-- <th class="hidden-xs">Other</th> -->
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="d in filteredDevices" :key="d.udid" v-bind:class='{"offline": !d.present}'>
+            <td class="hidden">
+              <input type="checkbox" disabled=true>
+            </td>
+            <td>
+              <div @click="d.present && toggleReady(d)">
+                <span v-show="d.ready" class="fa fa-thumbs-o-up" v-bind:class='{"color-green": d.present}'></span>
+                <span v-show="!d.ready" class="fa fa-thumbs-o-down"></span>
+              </div>
+            </td>
+            <td class="text-center">
+              <span v-if="!d.present" class="color-yellow">Offline</span>
+              <span v-else>
+                <a v-if="!d.using" target="_blank" class="hidden-xs btn btn-xs btn-link" >
+                 <!-- :href='"/devices/"+d.udid+"/remote"'> -->
+                 <!-- href="javascript:onclick=openRequestedPopup('http://192.168.0.120:8000/devices/1ed814f6-94:87:e0:3b:9a:49-MI_6X/remote')"> -->
+                 <!-- href="javascript:;" onclick="openRequestedPopup('/devices/'+d.udid+'/remote')" -->
+                  User
+                </a>
+                <span v-if="!d.using" class="visible-xs" style="cursor: pointer" @click="d.present && identify(d)">
+                  <!-- locate idle device-->
+                  <i class="fa fa-location-arrow" :class="{'fa-spin': d.identifying}"></i>
+                </span>
+                <span class="hidden-xs color-red" v-if="d.using" @dblclick.alt="releaseDevice(d.udid)">{{d.owner && d.owner.ip}}</span>
+                <span class="visible-xs color-red" v-if="d.using">Busy</span>
+              </span>
+            </td>
+            <td class="hidden-xs">
+              <span v-text="d.ip"></span>
+            </td>
+            <td class="hidden-xs" style="font-family: 'Courier New', Courier, monospace">
+              {{d.serial | shortString(10)}}
+              <!-- <span v-text='d.serial && d.serial.slice(4)+"..."' class="visible-xs"></span> -->
+            </td>
+<!--             <td class="hidden-xs" v-text="d.propertyId"></td> -->
+            <td class="hidden-xs" v-text="d.udid"></td>
+            <!-- <td class="hidden-xs" v-text="d.model"></td> -->
+            <td class="hidden-xs" v-text="d.brand"></td>
+            <td>
+              <span v-text="(d.product || {}).name"></span>
+              <a :href="'/devices/'+d.udid+'/edit'" class="fa fa-edit"></a>
+            </td>
+            <td class="hidden" v-text="d.model"></td>
+            <td class="hidden-xs">{{d.version}}({{d.sdk}})</td>
+            <td class="hidden">
+              <span v-if="d.cpu">{{d.cpu.hardware.replace('Qualcomm Technologies, Inc', '骁龙')}}</span>
+            </td>
+            <td class="hidden text-uppercase">
+              <span v-text="d.hwaddr"></span>
+            </td>
+            <td class="hidden">{{d.memory && d.memory.around}}</td>
+            <td class="hidden-xs">{{d.memory && d.memory.around}}</td>
+<!--             <td class="hidden-xs">
+              <span style="cursor: pointer" @click="d.present && identify(d)">
+                <i class="fa fa-location-arrow" :class="{'fa-spin': d.identifying}"></i>
+                {{d.agentVersion}}
+              </span>
+            </td> -->
+            <td class="hidden-xs">
+              <span v-if="d.cpu">{{d.cpu.hardware.replace('Qualcomm Technologies, Inc', '骁龙')}}</span>
+            </td>
+            <td>
+              <!-- temperature-->
+              <span v-if="d.battery" :class="{'color-red': d.battery.temperature > 400}">
+                {{d.battery.temperature/10}}℃
+              </span>
+            </td>
+            <td>
+              <span v-if="d.battery" :class="{'color-red': d.battery.level < 30}">
+                {{d.battery.level}}%
+                <span class="hidden-xs" v-if="d.present && d.battery">
+                  <i class="fa fa-usb" v-if="d.provider"></i>
+                  <!-- 2: charging -->
+                  <i class="fa fa-plug color-rest" v-else-if="d.battery.status == 2"></i>
+                  <i class="fa-fix-height fa" v-else :class='"fa-battery-" + Math.floor(d.battery.level/25)'></i>
+                </span>
+              </span>
+            </td>
+            <td class="hidden-xs">
+              {{d.presenceChangedAt | timeSince}}
+            </td>
+            <td>
+              <editable-span :content="d.notes" @change="changeNotes(d, $event)" />
+            </td>
+            <td class="hidden-xs">
+              <!-- <a target="_blank" :href='"http://"+d.ip+":7912/remote"'><i class="fa fa-television"></i></a> -->
+              <!-- <a class="hidden-xs" target="_blank" :href='"http://"+d.ip+":7912/term"'>
+                <i class="fa fa-terminal"></i>
+              </a>
+              <button class="hidden-xs btn btn-link btn-copy btn-xs" :data-clipboard-text="d.udid">
+                <i class="fa fa-clipboard" alt="Copy to clipboard"></i>
+              </button>
+              <a target="_blank" :href='"http://"+d.ip+":7912/screenshot"'>
+                <i class="fa fa-camera" alt="Take screenshot"></i>
+              </a>
+              <a class="hidden-xs btn btn-link btn-copy btn-xs" target="_blank" :href='"http://"+d.ip+":7912/remote"'>
+                <i class="fa fa-eye" alt="Remote control"></i>
+              </a> -->
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <script src='[["/assets/vue-components.js" | urlhash]]'></script>
+<!--   <script language= "JavaScript">
+	var windowObjectReference;
+    var strWindowFeatures = "width=1000,height=500,menubar=yes,location=yes,resizable=yes,scrollbars=true,status=true";
+    function openRequestedPopup(url){
+    window.open(url, "", strWindowFeatures); 	
+    // window.open("http://192.168.0.120:8000/devices/"+url+"/remote", "", strWindowFeatures);
+    }
+  </script> -->
+  <script>
+    new Vue({
+      el: ".container-fluid",
+      data: {
+        devices: [],
+        errmsg: "",
+        searchText: "",
+      },
+      directives: {
+        focus: {
+          inserted: function (el) {
+            el.focus();
+          }
+        }
+      },
+      filters: {
+        timeSince: function (value) {
+          return moment(value).fromNow()
+        },
+        shortString: function (value, length) {
+          length = parseInt(length || "10", 10);
+          if (!value || value.length < length) {
+            return value;
+          }
+          var preLen = Math.max(1, Math.floor(length / 2 - 2));
+          var postLen = length - preLen - 2;
+          return value.substr(0, preLen) + '..' + value.substr(-postLen);
+        }
+      },
+      mounted: function () {
+        this.loadWatches()
+
+        var clipboard = new ClipboardJS(".btn-copy")
+        clipboard.on('success', function (e) {
+          $(e.trigger).notify("Copied!", {
+            className: "success",
+            position: "right",
+            autoHideDelay: 800
+          })
+        })
+      },
+      computed: {
+        filteredDevices: function () {
+          var searchText = this.searchText.trim();
+          if (!searchText.length) {
+            return this.onlineDevices;
+          }
+          var keywords = searchText.split(/\s+/).map(function (key) {
+            return key.toLowerCase()
+          })
+          return this.onlineDevices.filter(function (d) {
+            return keywords.every(function (key) {
+              // searched properties
+              return [d.propertyId, d.ip, d.serial, d.brand, d.version, (d.product || {}).name].some(function (value) {
+                return value && ("" + value).toLowerCase().includes(key)
+              })
+            })
+          })
+        },
+        onlineDevices: function () {
+          return this.devices.filter(function (d) {
+            return d.present;
+          })
+        },
+        onlineCount: function () {
+          return this.filteredDevices.filter(function (d) {
+            return d.present
+          }).length;
+        },
+      },
+      methods: {
+        releaseDevice: function (udid) {
+          $.ajax({
+            url: "/devices/" + udid + "/reserved",
+            method: "delete"
+          })
+        },
+        count: function (present, ready, using) {
+          return this.filteredDevices.filter(function (d) {
+            if (present != null && d.present != present) {
+              return false;
+            }
+            if (ready != null && d.ready != ready) {
+              return false;
+            }
+            if (using != null && d.using != using) {
+              return false;
+            }
+            return true;
+          }).length
+        },
+        loadWatches: function () {
+          // init data
+          this.loadDevices()
+          this.errmsg = "Connecting"
+
+          var ws = new WebSocket("ws://" + location.host + "/feeds")
+          var key = setInterval(function () {
+            ws.send("ping")
+          }, 5000);
+          ws.onopen = function () {
+            console.log("websocket connected")
+            this.errmsg = "";
+          }.bind(this)
+          ws.onmessage = function (evt) {
+            var jdata = JSON.parse(evt.data);
+            if (jdata.error) {
+              this.errmsg = jdata.error;
+              return
+            }
+            var dataNew = jdata.new,
+              dataOld = jdata.old;
+            if (dataNew && dataOld) {
+              $.ajax({
+                url: "/devices/" + dataNew.udid + "/info",
+                dataType: "json",
+              }).then(function (ret) {
+                this.devices = this.devices.map(function (d) {
+                  if (d.udid == dataNew.udid) {
+                    return ret;
+                  }
+                  return d;
+                })
+              }.bind(this))
+            } else {
+              this.loadDevices();
+            }
+            // console.log("websocket recv:", evt.data)
+          }.bind(this)
+          ws.onclose = function (evt) {
+            console.log("websocket closed")
+            clearInterval(key)
+            this.errmsg = "Server connection closed. " + this.errmsg;
+          }.bind(this)
+        },
+        loadDevices: function () {
+          return $.ajax({
+            url: "/list",
+          }).then(function (ret) {
+            this.devices = ret.map(function (d) {
+              d.identifying = false;
+              return d
+            })
+          }.bind(this))
+        },
+        identify: function (d) {
+          d.identifying = true;
+          $.ajax({
+            url: "/devices/" + d.udid + "/shell",
+            method: "post",
+            data: {
+              command: "input keyevent HOME && am start -W --user 0 -a com.github.uiautomator.ACTION_IDENTIFY -e theme red"
+            }
+          })
+            .always(function () {
+              d.identifying = false
+            }.bind(this))
+        },
+        release: function (d) {
+          $.ajax({
+            url: "/devices/" + d.udid + "/reserved",
+            method: "delete",
+          }).then(this.loadDevices)
+        },
+        toggleReady: function (d) {
+          d.ready = !d.ready;
+          this.updateDeviceInfo(d.udid, { ready: d.ready });
+        },
+        changeNotes: function (d, notes) {
+          d.notes = notes + "..";
+          this.updateDeviceInfo(d.udid, { notes: notes })
+        },
+        updateDeviceInfo: function (udid, info) {
+          return $.ajax({
+            url: "/devices/" + udid + "/info",
+            method: "post",
+            data: JSON.stringify(info),
+          })
+        },
+        batchIdentify: function (theme) {
+          $.ajax({
+            url: "/api/v1/batch/shell",
+            method: "post",
+            data: {
+              command: "input keyevent BACK && am start -W -a com.github.uiautomator.ACTION_IDENTIFY -e theme " + theme,
+            }
+          })
+        },
+        batchLock: function () {
+          $.ajax({
+            url: "/api/v1/batch/lock",
+            method: "post",
+          })
+        },
+        batchUnlock: function () {
+          $.ajax({
+            url: "/api/v1/batch/unlock",
+            method: "post",
+          })
+        },
+        batchPower: function () {
+          $.ajax({
+            url: "/api/v1/batch/shell",
+            method: "post",
+            data: {
+              command: "reboot -p"
+            }
+          })
+        },
+        setProperty: function () {
+          $.ajax({
+            url: "/api/v1/batch/shell",
+            method: "post",
+            data: {
+              command: "am start -a android.intent.action.VIEW -d http://" + location.host + "/property",
+            }
+          })
+        }
+      }
+    })
+  </script>
+</body>
+
+</html>

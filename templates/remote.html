@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>DRC [[.]]</title>
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/bootstrap/3.3.7/css/bootstrap.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/bootstrap.select/1.12.2/css/bootstrap-select.min.css">
+  <link rel="stylesheet" href='[["/assets/remote.css" | urlhash]]'>
+  <link rel="stylesheet" href="/assets/bootstrap-tabs.css">
+  <link rel="stylesheet" href="/assets/logcat.css">
+  <link rel="stylesheet" href="/assets/libs/dropzone/dropzone.min.css">
+  <!-- jstree -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jstree@3.3.4/dist/themes/default/style.min.css">
+  <style>
+    /* body {
+      background: #EDECEC;
+      padding: 50px
+    } */
+
+    .dropzone {
+      display: block;
+      /*text-align: center;*/
+      border: 2px dashed #666;
+      border-radius: 5px;
+      cursor: pointer;
+      height: 74x;
+      line-height: 70px;
+      font-size: 20px;
+      position: relative;
+    }
+
+    .dropzone.dz-drag-hover {
+      border-style: solid;
+      border-color: #4285F4;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <nav class="navbar navbar-default" style="margin-bottom: 0px">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"
+          aria-expanded="false">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="/">
+          <b>ATX</b> -
+          <strong>Server</strong>
+        </a>
+      </div>
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <p class="navbar-text">{{deviceInfo.udid}} {{device.ip}}
+          <a target="_blank" v-bind:href='"http://"+device.ip+":"+device.port+"/term"'>
+            终端
+          </a>
+        </p>
+        <form class="navbar-form navbar-left">
+          <button class="btn btn-sm btn-default" @click.prevent="toggleScreen">
+            <i v-if="screenWS" class="fa fa-eye"></i>
+            <i v-else class="fa fa-eye-slash"></i>
+          </button>
+        </form>
+        <p class="navbar-text">
+          <a href="javascript:window.close()">标签页关闭</a>，设备自动释放</p>
+      </div>
+    </nav>
+    <div id="upper">
+      <div id="left">
+        <div class="text-center" style="background-color:white">
+          <!-- notification here -->
+        </div>
+        <section id="screen">
+          <canvas id="fgCanvas" class="canvas-fg" v-bind:style="canvasStyle"></canvas>
+          <canvas id="bgCanvas" class="canvas-bg" v-bind:style="canvasStyle"></canvas>
+          <span class="finger finger-0" style="transform: translate3d(200px, 100px, 0px)"></span>
+          <span class="finger finger-1" style="transform: translate3d(200px, 100px, 0px)"></span>
+          <!-- <img style="z-index: 10" v-if="loading" src="/assets/loading.svg"> -->
+        </section>
+        <section id="footer">
+          <button class="btn" @click="keyevent('power')">
+            <i class="fa fa-power-off color-red"></i> Power</button>
+          <button class="btn" @click="keyevent('menu')">
+            <i class="glyphicon glyphicon-menu-hamburger"></i> Menu</button>
+          <button class="btn" @click="keyevent('home')">
+            <i class="fa fa-home"></i> Home</button>
+          <button class="btn" @click="keyevent('back')">
+            <i class="fa fa-chevron-left"></i> Back</button>
+        </section>
+      </div>
+      <div id="vertical-gap1" class="handle vertical-gap"></div>
+      <div id="right">
+
+        <div class="row box">
+          <div class="col-md-12 box">
+            <!-- Nav tabs -->
+            <div class="card">
+              <ul class="nav nav-tabs" role="tablist">
+                <li role="presentation" @click="navtabs.active=v.id; changeTab(v.id)" :class='{active: v.id == navtabs.active}' v-for="v in navtabs.tabs">
+                  <a :href="'#'+v.id" :aria-controls="v.id" role="tab" data-toggle="tab">{{v.name}}</a>
+                </li>
+                <!-- <li role="presentation"><a href="#logcat" aria-controls="logcat" role="tab" data-toggle="tab">Logcat</a></li> -->
+                <!-- <li role="presentation"><a href="#install" aria-controls="install" role="tab" data-toggle="tab">App install</a></li> -->
+                <!-- <li role="presentation"><a href="#settings" aria-controls="settings" role="tab" data-toggle="tab">Settings</a></li> -->
+                <!-- <li role="presentation"><a href="#home" aria-controls="home" role="tab" data-toggle="tab">TODO</a></li> -->
+                <li v-show='navtabs.active == "logcat"' class="follow-log" v-bind:style="{'border-color': logcat.follow ? 'green' : 'gray'}"
+                  @click="followLog">
+                  <span class="hover-content">
+                    <i class="glyphicon glyphicon-arrow-down"></i> Scroll to End of Log</span>
+                </li>
+              </ul>
+
+              <!-- Tab panes -->
+              <div class="tab-content" ref="tab_content" @mousewheel="tabScroll">
+                <tab-item v-on:additem="addTabItem" :active="navtabs.active" tabid="home" name="常用">
+                  <button @click="fixRotation" class="btn btn-default btn-sm">
+                    <span class="glyphicon glyphicon-repeat"></span> 修复旋转</button>
+                  <button @click="fixMinicap" class="btn btn-default btn-sm" disabled=true>
+                    <span class="fa fa-legal"></span> 修复minicap</button>
+                  <div style="padding-top: 10px" v-text="fixConsole"></div>
+                  <p>
+                    安装
+                    <a href="https://chrome.google.com/webstore/detail/tab-capturing-sharing/pcnepejfgcmidedoimegcafiabjnodhk">Chrome 插件 Tap Sharing</a> 让其他人也能看到你的操作
+                  </p>
+
+                  <div class="panel panel-default">
+                    <div class="panel-heading">
+                      <i class="fa fa-font"></i> 快捷输入(开发中)</div>
+                    <div class="panel-body">
+                      <textarea class="form-control" v-model="inputText"></textarea>
+                      <p class="description">
+                        <strong>Shift+Enter</strong> to start a new line,
+                        <strong>Enter</strong> to send</p>
+                    </div>
+                  </div>
+
+                  <div class="panel panel-default">
+                    <div class="panel-heading">
+                      <i class="fa fa-android"></i> 软件安装</div>
+                    <div class="panel-body">
+                      <div>
+                        <div class="input-group">
+                          <span class="input-group-addon" id="sizing-addon2">
+                            <i class="fa fa-globe"></i>
+                          </span>
+                          <input type="text" class="form-control" v-model="browserURL" placeholder="输入安装包地址 http://.." @keyup.enter="openBrowser(browserURL)">
+                          <span class="input-group-btn">
+                            <button type="button" class="btn btn-default" @click='openBrowser(browserURL)'>下载</button>
+                          </span>
+                        </div>
+                        <p class="description">打开浏览器下载，下载完成后需手动安装</p>
+                      </div>
+
+                    </div>
+                  </div>
+
+                  <div class="panel panel-default">
+                    <div class="panel-heading">截图 &amp; 录制</div>
+                    <div class="panel-body">
+                      <button @click="saveScreenshot()" class="btn btn-sm btn-default">
+                        <i class="fa fa-image"></i> 截图</button>
+                      <button v-if="!videoReceiver" type="button" class="btn btn-sm btn-default" @click="startVideoRecord">
+                        高速录制
+                        <i class="fa fa-circle color-red"></i>
+                      </button>
+                      <button v-if="!videoReceiver" type="button" class="btn btn-sm btn-default" @click="startLowQualityScreenRecord">
+                        低速录制
+                        <i class="fa fa-circle color-red"></i>
+                      </button>
+                      <!-- <button v-if="!videoReceiver" -->
+                      <button v-if="videoReceiver" type="button" class="btn btn-sm btn-default" @click="stopVideoRecord">
+                        停止录制
+                        <i class="fa fa-stop color-blue"></i>
+                      </button>
+                      <p class="description">高速录制时需要保持屏幕开启，每秒仅采集6张图片, 播放时约2倍速度快放。低速录制每一秒采集一张图片</p>
+                      <p>
+                        <a target="_blank" href="/videos">
+                          <i class="fa fa-external-link"></i>
+                          查看所有录制</a>
+                      </p>
+                      <div>
+                        <hr>
+                        <div>
+                          <button @click="saveShortVideo" class="btn btn-sm btn-default">
+                            <i class="fa fa-video-camera"></i> 保存最近~10s视频 (Beta)</button>
+                        </div>
+                        <div v-show="videoUrl" class="text-center">
+                          <hr>
+                          <div class="input-group">
+                            <span class="input-group-addon" id="sizing-addon2">
+                              视频地址
+                            </span>
+                            <input type="text" v-model="videoUrl" class="form-control" disabled>
+                            <span class="input-group-btn">
+                              <button class="btn btn-default btn-copy" type="button" v-bind:data-clipboard-text="videoUrl">
+                                Copy
+                              </button>
+                            </span>
+                          </div>
+                          <br>
+                          <video :src="videoUrl" controls=controls style="max-height: 400px; border: 1px solid gray">
+                            您的浏览器不支持 video 标签
+                          </video>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </tab-item>
+
+                <tab-item v-on:additem="addTabItem" :active="navtabs.active" name="Logcat(TODO)">
+                  <p>最大保存行数:
+                    <input type="number" v-model.number="logcat.maxKeep">
+                  </p>
+                  <div class="input-group input-group-sm" style="width: 400px">
+                    <span class="input-group-addon">Package name</span>
+                    <input type="text" class="form-control" placeholder="com.example...">
+                    <span class="input-group-btn">
+                      <button class="btn btn-default" type="button">
+                        <span class="glyphicon glyphicon-refresh"></span>
+                      </button>
+                    </span>
+                  </div>
+                  <br>
+                  <table class="logcat" ref="logcat">
+                    <tbody>
+                      <tr v-for="v in logcat.logs">
+                        <td class="logcat-lineno" :style="{color: logcatTag2Color(v.tag)}">{{v.lineno}}</td>
+                        <td class="logcat-tag" :style="{color: logcatTag2Color(v.tag)}">{{v.tag}}</td>
+                        <td class="logcat-level" :style="{'background-color': logcatLevel2Color(v.level)}">{{v.level}}</td>
+                        <td class="logcat-content">{{v.content}}</td>
+                      </tr>
+                      <tr>
+                        <td class="logcat-lineno">2000</td>
+                        <td class="logcat-tag" style="color: rgb(105, 155, 221)">EsService</td>
+                        <td class="logcat-level">I</td>
+                        <td>readResults: read results: 32, lastRequestId: 330</td>
+                      </tr>
+                      <tr>
+                        <td class="logcat-lineno">2000</td>
+                        <td></td>
+                        <td class="logcat-level">I</td>
+                        <td class="logcat-content">Kgd.KeyguardUpdateMonitor: mTimeTickBroadcastReceiver current state is mBootCompleted=true mDeviceProvisioned=true
+                          mPhoneState=0 Keyguard.isShowing = false Keyguard.isOccluded = false mScreenOn=true</td>
+                      </tr>
+                      <tr>
+                        <td class="logcat-lineno">2000</td>
+                        <td class="logcat-tag">libEGL</td>
+                        <td class="logcat-level" style="background-color: gray">D</td>
+                        <td class="logcat-content">loaded /system/lib/egl/libEGL_adreno200.so</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </tab-item>
+
+                <tab-item v-on:additem="addTabItem" :active="navtabs.active" tabid="explorer" name="文件(TODO)">
+                  <!-- <label>从URL安装（todo）</label>
+                  <div style="max-width: 500px" class="input-group">
+                    <input type="text" placeholder="https://..." class="form-control">
+                    <span class="input-group-btn">
+                      <button class="btn btn-default" type="button">Go</button>
+                    </span>
+                  </div> -->
+
+                  <form action="/upload/sdcard/tmp/" method="post" enctype="multipart/form-data" class="dropzone" ref="upload">
+                  </form>
+                  <div class="form-group">
+                    <label>上传到 (还在开发中) </label>
+                    <input type="text" placeholder="上传路径" class="form-control">
+                    <p class="help-block">上传路径为空，会根据上传的文件名自动分析要上传的路径</p>
+                  </div>
+                  <!-- <button class="btn btn-default btn-sm">上传</button> -->
+
+                  <form v-on:submit.prevent="uploadFile">
+                    <div class="form-group">
+                      <label for="file">Choose file to upload</label>
+                      <input type="file" name="file">
+                      <p class="help-block">file will be uploaded to "/sdcard/tmp/"</p>
+                    </div>
+                    <div>
+                      <button class="btn btn-default btn-sm">上传</button>
+                    </div>
+                  </form>
+
+                </tab-item>
+                <tab-item v-on:additem="addTabItem" :active="navtabs.active" name="Settings">
+                  Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy
+                  text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type
+                  specimen book. It has survived not only five centuries, but also the leap into electronic typesetting,
+                  remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing
+                  Lorem Ipsum passage..
+                </tab-item>
+                <tab-item v-on:additem="addTabItem" :active="navtabs.active" tabid="terminal" name="终端(TODO)">
+                  TODO
+                </tab-item>
+                <tab-item v-on:additem="addTabItem" :active="navtabs.active" tabid="aboutus" name="关于我们">
+                  远程真机项目，如有问题欢迎联系 hzsunshx (网易内部) 499563266 (QQ群)
+                </tab-item>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- alert and dialogs -->
+    <div class="modal" tabindex="-1" role="dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+            <h4 class="modal-title">
+              <span class="color-red">
+                <i class="fa fa-warning"></i> Error</span>
+            </h4>
+          </div>
+          <div class="modal-body">
+            <pre v-html="error"></pre>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+<script src="//cdn.jsdelivr.net/npm/vue@2.5.13/dist/vue.js"></script>
+<script src="//cdn.jsdelivr.net/npm/jquery@3.2.1/dist/jquery.min.js"></script>
+<script src="//cdn.jsdelivr.net/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+<script src="//cdn.jsdelivr.net/bootstrap.select/1.12.2/js/bootstrap-select.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/jstree@3.3.4/dist/jstree.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/file-saver@1.3.3/FileSaver.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/clipboard@1.5.12/dist/clipboard.min.js"></script>
+<script src="/assets/libs/notify.js"></script>
+<script src="/assets/libs/jquery-tiny-pubsub.js"></script>
+<script src='/assets/libs/dropzone/dropzone.min.js'></script>
+<script src='[["/assets/common.js" | urlhash]]'></script>
+<script type="text/x-template" id="tab-item-component">
+  <div role="tabpanel" class="tab-pane" :class='{active: active == id}' :id="id">
+    <slot></slot>
+  </div>
+</script>
+<script>
+  var deviceIp = "[[.IP]]"
+  var devicePort = "[[.Port]]"
+  var deviceUdid = "[[.Udid]]"
+
+  console.log("Infos:", deviceIp, devicePort, deviceUdid)
+
+  Vue.component('tab-item', {
+    template: '#tab-item-component',
+    props: ["name", "active", "tabid"],
+    computed: {
+      id: function () {
+        return this.tabid || this.name.toLowerCase().replace(" ", "-")
+      }
+    },
+    mounted: function () {
+      var item = {
+        name: this.name,
+        id: this.id,
+      }
+      this.$emit("additem", item);
+    }
+  });
+</script>
+<!-- need set var "deviceIp" before -->
+<script src='[["/assets/remote.js" | urlhash]]'></script>
+
+</html>
